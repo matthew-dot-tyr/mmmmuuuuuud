@@ -1,4 +1,4 @@
-# arena-negotiations-backend
+# bolshie-chleni
 
 Backend API тренажёра переговоров: FastAPI + Qwen через OpenRouter + Supabase.
 
