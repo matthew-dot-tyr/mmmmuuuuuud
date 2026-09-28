@@ -1,4 +1,4 @@
-# arena-negotiations-backend
+# prochtenie
 
 Backend API тренажёра переговоров: FastAPI + Qwen через OpenRouter + Supabase.
 
