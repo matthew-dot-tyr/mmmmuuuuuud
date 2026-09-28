@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Арена переговоров</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🤝</text></svg>">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root {
+    --bg: #0f1115;
+    --panel: #171a21;
+    --panel-2: #1e222b;
+    --line: #2a2f3a;
+    --text: #e6e8ec;
+    --muted: #8b93a3;
+    --accent: #5b8cff;
+    --accent-soft: #223056;
+    --good: #3ecf8e;
+    --bad: #ff6b6b;
+    --radius: 14px;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+    font: 15px/1.55 -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+    display: flex;
+    justify-content: center;
+    padding: 24px 16px 64px;
+  }
+  .wrap { width: 100%; max-width: 760px; }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 14px;
+  }
+  h1 { font-size: 19px; margin: 0; letter-spacing: .2px; }
+  .muted { color: var(--muted); }
+  .small { font-size: 13px; }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+
+  /* прогресс */
+  .progress-row { display: flex; align-items: center; gap: 12px; }
+  .lvl {
+    background: var(--accent-soft);
+    color: #cfe0ff;
+    border-radius: 8px;
+    padding: 4px 10px;
+    font-weight: 600;
+    font-size: 13px;
+    white-space: nowrap;
+  }
+  .bar { flex: 1; height: 8px; background: var(--panel-2); border-radius: 99px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; background: var(--accent); width: 0; transition: width .4s; }
+
+  /* выбор */
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: .8px; color: var(--muted); margin: 0 0 10px; font-weight: 600; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+  .pick {
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    transition: border-color .15s, background .15s;
+  }
+  .pick:hover:not(:disabled) { border-color: var(--accent); }
+  .pick[aria-pressed="true"] { border-color: var(--accent); background: var(--accent-soft); }
+  .pick:disabled { opacity: .45; cursor: not-allowed; }
+  .pick b { display: block; margin-bottom: 2px; }
+  .pick span { color: var(--muted); font-size: 13px; }
+
+  button.primary {
+    background: var(--accent);
+    color: #0c1020;
+    border: 0;
+    border-radius: 10px;
+    padding: 12px 18px;
+    font: inherit;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  button.primary:disabled { opacity: .4; cursor: not-allowed; }
+  button.ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 16px;
+    font: inherit;
+    cursor: pointer;
+  }
+
+  /* сценарий и диалог */
+  .scenario { border-left: 3px solid var(--accent); padding-left: 14px; }
+  .facts { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; }
+  .facts div { font-size: 13px; color: var(--muted); }
+  .facts b { color: var(--text); font-weight: 500; }
+
+  .msg { margin-bottom: 12px; max-width: 86%; }
+  .msg .who { font-size: 12px; color: var(--muted); margin-bottom: 4px; }
+  .msg .body { background: var(--panel-2); border-radius: 12px; padding: 10px 14px; white-space: pre-wrap; }
+  .msg.me { margin-left: auto; }
+  .msg.me .who { text-align: right; }
+  .msg.me .body { background: var(--accent-soft); }
+
+  /* последние попытки */
+  .attempt { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .attempt:first-child { border-top: none; }
+  .attempt .dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .attempt .dot.ok { background: var(--good); }
+  .attempt .dot.no { background: var(--bad); }
+  .attempt .theme { flex: 1; }
+  .attempt .date { color: var(--muted); font-size: 13px; }
+
+  textarea {
+    width: 100%;
+    background: var(--panel-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    color: var(--text);
+    font: inherit;
+    padding: 12px;
+    resize: vertical;
+    min-height: 88px;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .spacer { flex: 1; }
+
+  .verdict { font-size: 22px; font-weight: 700; margin-bottom: 4px; }
+  .verdict.ok { color: var(--good); }
+  .verdict.no { color: var(--bad); }
+  .xp { margin-top: 12px; font-size: 15px; }
+  .levelup { color: var(--good); font-weight: 600; margin-top: 6px; }
+
+  .error { border-color: var(--bad); color: #ffc9c9; }
+  .hidden { display: none; }
+  .dots::after { content: ""; animation: d 1.2s steps(4, end) infinite; }
+  @keyframes d { 0% { content: ""; } 25% { content: "."; } 50% { content: ".."; } 75% { content: "..."; } }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>Арена переговоров</h1>
+    <span class="muted small" id="whoami"></span>
+  </header>
+
+  <div class="card">
+    <div class="progress-row">
+      <span class="lvl" id="level">уровень —</span>
+      <span class="lvl hidden" id="streakBadge">🔥 0 дней подряд</span>
+      <div class="bar"><i id="bar"></i></div>
+      <span class="muted small" id="xpText">загружаю…</span>
+    </div>
+  </div>
+
+  <div class="card error hidden" id="error"></div>
+
+  <!-- вход -->
+  <section id="signin">
+    <div class="card">
+      <h2>Вход</h2>
+      <p class="muted small">
+        Вход по одноразовой ссылке (magic link) — без пароля. Введите почту,
+        придёт письмо со ссылкой; после перехода по ней вы автоматически
+        окажетесь здесь уже залогиненным — ничего вставлять руками не нужно.
+      </p>
+      <div id="signinForm">
+        <input type="email" id="emailInput" placeholder="you@example.com"
+               style="width:100%;background:var(--panel-2);border:1px solid var(--line);border-radius:10px;color:var(--text);font:inherit;padding:12px;">
+        <div class="row" style="margin-top:10px">
+          <button class="primary" id="signInBtn">Прислать ссылку для входа</button>
+        </div>
+      </div>
+      <p class="muted small hidden" id="signinSent">
+        Проверьте почту (и папку «Спам») — там ссылка для входа. Перейдите по
+        ней в этой же вкладке.
+      </p>
+    </div>
+  </section>
+
+  <!-- выбор сценария -->
+  <section id="setup" class="hidden">
+    <div class="card">
+      <h2>Ситуация</h2>
+      <div class="grid" id="modes"></div>
+    </div>
+    <div class="card" id="themeCard">
+      <h2>Тема</h2>
+      <div class="grid" id="themes"></div>
+    </div>
+    <div class="card hidden" id="customCard">
+      <h2>Своя ситуация</h2>
+      <textarea id="customSituation" placeholder="Опишите ситуацию: с кем и о чём вы договариваетесь (от 30 до 400 символов)"></textarea>
+      <div class="muted small" id="customCounter" style="margin-top:6px"></div>
+    </div>
+    <div class="card">
+      <h2>Сложность</h2>
+      <div class="grid" id="difficulties"></div>
+    </div>
+    <div class="row">
+      <button class="primary" id="startBtn" disabled>Начать переговоры</button>
+      <span class="muted small" id="startHint"></span>
+    </div>
+
+    <div class="card hidden" id="attemptsCard">
+      <h2>Последние попытки</h2>
+      <div id="attemptsList"></div>
+    </div>
+  </section>
+
+  <!-- диалог -->
+  <section id="game" class="hidden">
+    <div class="card">
+      <div class="scenario">
+        <div id="scenarioText"></div>
+        <div class="facts">
+          <div>Оппонент: <b id="fRole"></b></div>
+          <div>Манера: <b id="fTone"></b></div>
+          <div>Его цель: <b id="fGoal"></b></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" id="chat"></div>
+
+    <div class="card" id="answerBox">
+      <h2 id="answerTitle">Твой ответ</h2>
+      <div id="options" class="grid"></div>
+      <div id="freeText" class="hidden">
+        <textarea id="reply" placeholder="Напиши, что отвечаешь оппоненту"></textarea>
+        <div class="row" style="margin-top:10px">
+          <button class="primary" id="sendBtn">Ответить</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card hidden" id="result">
+      <div class="verdict" id="verdict"></div>
+      <div class="muted small" id="scoreLine"></div>
+      <p id="feedback" style="margin:12px 0 0"></p>
+      <div class="xp" id="xpLine"></div>
+      <div class="levelup hidden" id="levelUp">Новый уровень! Открылась следующая сложность.</div>
+      <div class="row" style="margin-top:16px">
+        <button class="primary" id="againBtn">Ещё раз</button>
+      </div>
+    </div>
+  </section>
+
+  <p class="muted small hidden" id="signedInFooter" style="margin-top:22px">
+    Тестовая страница для проверки бэкенда без фронтенда.
+    user_id всегда берётся из access_token, прогресс — в базе.
+    <a href="#" id="signOutLink" style="color:var(--muted)">выйти</a>
+  </p>
+
+</div>
+
+<script>
+const THEMES = [
+  ["work", "Работа и карьера", "повышение, условия, переработки"],
+  ["money", "Деньги и бизнес", "оплата, условия сделки, долги"],
+  ["purchase", "Крупные покупки и аренда", "квартира, машина, ремонт"],
+  ["personal", "Быт и личное", "договориться с близкими"],
+];
+const DIFFS = [
+  [1, "Сложность 1", "идёт навстречу"],
+  [2, "Сложность 2", "упирается, ссылается на правила"],
+  [3, "Сложность 3", "давит, ответ своими словами"],
+];
+const MODES = [
+  ["theme", "Готовая тема", "выбрать из списка"],
+  ["custom", "Своя ситуация", "описать своими словами"],
+];
+const CUSTOM_MIN_LEN = 30;
+const CUSTOM_MAX_LEN = 400;
+
+// Публичные значения проекта Supabase — это НЕ секреты (anon-ключ рассчитан
+// на то, чтобы лежать в клиентском коде, доступ к данным ограничивает RLS на
+// стороне Supabase, а не секретность этого ключа). SUPABASE_JWT_SECRET и
+// service_role ключ сюда попадать не должны — те остаются только в .env бэкенда.
+const SUPABASE_URL = "https://kttkflaqjpnuotvogfcm.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imt0dGtmbGFxanBudW90dm9nZmNtIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTA0OTg3MDksImV4cCI6MjEwNjA3NDcwOX0.oFNb4qI_xcbpUBLpLyvZ4KcIybkB_YmVAI741Q4lwt8";
+
+const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { detectSessionInUrl: true, persistSession: true },
+});
+
+const $ = id => document.getElementById(id);
+const state = { accessToken: null, sessionToken: null, options: null, mode: "theme", theme: null, difficulty: null, busy: false };
+
+function escapeHtml(value) {
+  const div = document.createElement("div");
+  div.textContent = value == null ? "" : String(value);
+  return div.innerHTML;
+}
+
+async function api(method, path, body) {
+  const headers = body ? { "Content-Type": "application/json" } : {};
+  if (state.accessToken) headers["Authorization"] = `Bearer ${state.accessToken}`;
+  const res = await fetch(path, { method, headers, body: body ? JSON.stringify(body) : undefined });
+  const text = await res.text();
+  let data = {};
+  try { data = text ? JSON.parse(text) : {}; } catch (e) { data = { detail: text }; }
+  if (!res.ok) {
+    let detail = data.detail;
+    if (Array.isArray(detail)) detail = detail.map(d => d.msg || JSON.stringify(d)).join("; ");
+    const err = new Error(detail || `Ошибка ${res.status}`);
+    err.status = res.status;
+    // Токен просрочен/отозван на стороне Supabase, а сервер это уже видит —
+    // разлогиниваем и на клиенте, чтобы не застрять с мёртвой сессией.
+    if (res.status === 401) sb.auth.signOut();
+    throw err;
+  }
+  return data;
+}
+
+function ensurePlayer() {
+  return api("GET", "/user/me").catch(e => {
+    if (e.status === 404) return api("POST", "/user", {});
+    throw e;
+  });
+}
+
+function showSignInUI() {
+  $("signin").classList.remove("hidden");
+  $("setup").classList.add("hidden");
+  $("game").classList.add("hidden");
+  $("signedInFooter").classList.add("hidden");
+  $("signinForm").classList.remove("hidden");
+  $("signinSent").classList.add("hidden");
+}
+
+function showSignedInUI() {
+  $("signin").classList.add("hidden");
+  $("setup").classList.remove("hidden");
+  $("signedInFooter").classList.remove("hidden");
+}
+
+function themeTitle(slug) {
+  const found = THEMES.find(([s]) => s === slug);
+  return found ? found[1] : "Своя ситуация";
+}
+
+function renderStreak(streak) {
+  const badge = $("streakBadge");
+  badge.textContent = `🔥 ${streak.streak_count} ${streak.streak_count === 1 ? "день" : "дней"} подряд`;
+  badge.classList.remove("hidden");
+}
+
+function renderAttempts(attempts) {
+  $("attemptsList").innerHTML = "";
+  if (!attempts.length) {
+    $("attemptsCard").classList.add("hidden");
+    return;
+  }
+  $("attemptsCard").classList.remove("hidden");
+  for (const a of attempts) {
+    const row = document.createElement("div");
+    row.className = "attempt";
+    row.innerHTML = `<span class="dot ${a.success ? "ok" : "no"}"></span><span class="theme"></span><span class="date"></span>`;
+    row.querySelector(".theme").textContent = themeTitle(a.theme);
+    row.querySelector(".date").textContent = new Date(a.created_at).toLocaleDateString("ru-RU");
+    $("attemptsList").appendChild(row);
+  }
+}
+
+async function loadStreakAndAttempts() {
+  try { renderStreak(await api("GET", "/streak")); } catch (e) { /* не критично, бейдж просто не покажется */ }
+  try { renderAttempts(await api("GET", "/attempts")); } catch (e) { /* не критично */ }
+}
+
+async function handleSession(session) {
+  if (!session) {
+    state.accessToken = null;
+    showSignInUI();
+    return;
+  }
+  state.accessToken = session.access_token;
+  try {
+    const player = await ensurePlayer();
+    showSignedInUI();
+    renderProgress(player);
+    loadStreakAndAttempts();
+  } catch (e) {
+    showSignInUI();
+    if (e.status !== 401) showError("Не удалось загрузить игрока: " + e.message);
+  }
+}
+
+async function consumeAuthHashIfPresent() {
+  // Ссылка из письма magic link возвращает access_token/refresh_token в
+  // #-фрагменте URL. detectSessionInUrl в клиенте это тоже умеет сам, но в
+  // проверке он не сработал (осталась пустая сессия при непустом фрагменте) —
+  // поэтому разбираем фрагмент и вызываем setSession руками: это официальный
+  // задокументированный способ, а не костыль, и не зависит от того, почему
+  // не сработала автоматика внутри библиотеки.
+  const hash = window.location.hash.startsWith("#") ? window.location.hash.slice(1) : "";
+  if (!hash) return;
+  const params = new URLSearchParams(hash);
+  const access_token = params.get("access_token");
+  const refresh_token = params.get("refresh_token");
+  if (access_token && refresh_token) {
+    const { error } = await sb.auth.setSession({ access_token, refresh_token });
+    if (error) showError("Не удалось завершить вход по ссылке: " + error.message);
+  }
+  // Токены не должны оставаться видны в адресной строке независимо от исхода.
+  history.replaceState(null, "", window.location.pathname + window.location.search);
+}
+
+async function initAuth() {
+  sb.auth.onAuthStateChange((_event, session) => { handleSession(session); });
+  await consumeAuthHashIfPresent();
+  const { data: { session } } = await sb.auth.getSession();
+  await handleSession(session);
+}
+
+function showError(message) {
+  $("error").textContent = message;
+  $("error").classList.remove("hidden");
+}
+function clearError() { $("error").classList.add("hidden"); }
+
+function renderProgress(player) {
+  const perLevel = player.xp_to_next_level > 0
+    ? player.xp + player.xp_to_next_level
+    : player.xp;
+  const filled = perLevel ? Math.min(100, Math.round((player.xp / perLevel) * 100)) : 100;
+  $("level").textContent = `уровень ${player.level}`;
+  $("bar").style.width = filled + "%";
+  $("xpText").textContent = player.xp_to_next_level > 0
+    ? `${player.xp} XP · до следующего уровня ${player.xp_to_next_level}`
+    : `${player.xp} XP · максимальный уровень`;
+  $("whoami").textContent = player.user_id ? "игрок " + String(player.user_id).slice(0, 8) : "";
+  renderDifficulties(player.unlocked_difficulties || [1]);
+}
+
+function renderModes() {
+  $("modes").innerHTML = "";
+  for (const [slug, title, hint] of MODES) {
+    const b = document.createElement("button");
+    b.className = "pick";
+    b.type = "button";
+    b.setAttribute("aria-pressed", String(state.mode === slug));
+    b.innerHTML = `<b></b><span></span>`;
+    b.querySelector("b").textContent = title;
+    b.querySelector("span").textContent = hint;
+    b.onclick = () => {
+      state.mode = slug;
+      [...$("modes").children].forEach(el => el.setAttribute("aria-pressed", String(el === b)));
+      $("themeCard").classList.toggle("hidden", slug !== "theme");
+      $("customCard").classList.toggle("hidden", slug !== "custom");
+      refreshStartButton();
+    };
+    $("modes").appendChild(b);
+  }
+}
+
+function renderThemes() {
+  $("themes").innerHTML = "";
+  for (const [slug, title, hint] of THEMES) {
+    const b = document.createElement("button");
+    b.className = "pick";
+    b.type = "button";
+    b.setAttribute("aria-pressed", "false");
+    b.innerHTML = `<b></b><span></span>`;
+    b.querySelector("b").textContent = title;
+    b.querySelector("span").textContent = hint;
+    b.onclick = () => {
+      state.theme = slug;
+      [...$("themes").children].forEach(el => el.setAttribute("aria-pressed", String(el === b)));
+      refreshStartButton();
+    };
+    $("themes").appendChild(b);
+  }
+}
+
+function customSituationText() {
+  return $("customSituation").value.trim();
+}
+
+function updateCustomCounter() {
+  const len = customSituationText().length;
+  $("customCounter").textContent = `${len} / ${CUSTOM_MAX_LEN} символов (минимум ${CUSTOM_MIN_LEN})`;
+  refreshStartButton();
+}
+
+function renderDifficulties(unlocked) {
+  $("difficulties").innerHTML = "";
+  for (const [level, title, hint] of DIFFS) {
+    const open = unlocked.includes(level);
+    const b = document.createElement("button");
+    b.className = "pick";
+    b.type = "button";
+    b.disabled = !open;
+    b.setAttribute("aria-pressed", String(state.difficulty === level));
+    b.innerHTML = `<b></b><span></span>`;
+    b.querySelector("b").textContent = title;
+    b.querySelector("span").textContent = open ? hint : `откроется на уровне ${level}`;
+    b.onclick = () => {
+      state.difficulty = level;
+      [...$("difficulties").children].forEach(el => el.setAttribute("aria-pressed", String(el === b)));
+      refreshStartButton();
+    };
+    $("difficulties").appendChild(b);
+  }
+  if (state.difficulty && !unlocked.includes(state.difficulty)) state.difficulty = null;
+  refreshStartButton();
+}
+
+function refreshStartButton() {
+  const situationReady = state.mode === "custom"
+    ? customSituationText().length >= CUSTOM_MIN_LEN && customSituationText().length <= CUSTOM_MAX_LEN
+    : Boolean(state.theme);
+  const ready = situationReady && Boolean(state.difficulty) && !state.busy;
+  $("startBtn").disabled = !ready;
+  $("startHint").textContent = state.busy ? "" : (ready ? "" : "заполни ситуацию и выбери сложность");
+}
+
+function addMessage(who, text, mine) {
+  const el = document.createElement("div");
+  el.className = "msg" + (mine ? " me" : "");
+  el.innerHTML = `<div class="who"></div><div class="body"></div>`;
+  el.querySelector(".who").textContent = who;
+  el.querySelector(".body").textContent = text;
+  $("chat").appendChild(el);
+  el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function thinking(on) {
+  state.busy = on;
+  let el = $("thinking");
+  if (on) {
+    if (!el) {
+      el = document.createElement("div");
+      el.id = "thinking";
+      el.className = "muted small dots";
+      el.textContent = "оппонент думает";
+      $("chat").appendChild(el);
+    }
+  } else if (el) {
+    el.remove();
+  }
+}
+
+function renderAnswer(options) {
+  state.options = options || null;
+  $("options").innerHTML = "";
+  if (!options) {
+    $("freeText").classList.remove("hidden");
+    $("answerTitle").textContent = "Твой ответ своими словами";
+    $("reply").focus();
+    return;
+  }
+  $("freeText").classList.add("hidden");
+  $("answerTitle").textContent = "Выбери ответ";
+  for (const option of options) {
+    const b = document.createElement("button");
+    b.className = "pick";
+    b.type = "button";
+    b.textContent = option.text;
+    b.onclick = () => sendTurn({ option_id: option.option_id }, option.text);
+    $("options").appendChild(b);
+  }
+}
+
+function setAnswerVisible(visible) {
+  $("answerBox").classList.toggle("hidden", !visible);
+}
+
+async function startGame() {
+  clearError();
+  state.busy = true;
+  $("startBtn").disabled = true;
+  $("startHint").textContent = "генерирую сценарий, это занимает несколько секунд…";
+
+  const body = state.mode === "custom"
+    ? { mode: "custom", custom_situation: customSituationText(), difficulty: state.difficulty }
+    : { mode: "theme", theme: state.theme, difficulty: state.difficulty };
+
+  try {
+    const start = await api("POST", "/negotiation/start", body);
+
+    if (start.rejected) {
+      // Не ошибка сервера: модель (или локальная проверка) сочла ситуацию непригодной.
+      // Показываем причину и даём переписать текст, не роняя страницу.
+      showError(start.message || "Не получилось построить сценарий по этому описанию.");
+      return;
+    }
+
+    state.sessionToken = start.session_token;
+    $("scenarioText").textContent = start.scenario_text;
+    $("fRole").textContent = start.counterpart_role;
+    $("fTone").textContent = start.counterpart_tone;
+    $("fGoal").textContent = start.counterpart_goal;
+    $("chat").innerHTML = "";
+    $("result").classList.add("hidden");
+    setAnswerVisible(true);
+    $("setup").classList.add("hidden");
+    $("game").classList.remove("hidden");
+    addMessage("Оппонент", start.counterpart_opening, false);
+    renderAnswer(start.options);
+  } catch (e) {
+    showError(e.message);
+  } finally {
+    state.busy = false;
+    $("startHint").textContent = "";
+    refreshStartButton();
+  }
+}
+
+async function sendTurn(payload, shownText) {
+  if (state.busy) return;
+  clearError();
+  addMessage("Ты", shownText, true);
+  setAnswerVisible(false);
+  thinking(true);
+
+  try {
+    const result = await api("POST", "/negotiation/turn", {
+      session_token: state.sessionToken, ...payload,
+    });
+    thinking(false);
+    addMessage("Оппонент", result.counterpart_reply, false);
+
+    if (result.continue) {
+      state.sessionToken = result.session_token;
+      setAnswerVisible(true);
+      renderAnswer(result.options);
+      return;
+    }
+    await showResult(result);
+  } catch (e) {
+    thinking(false);
+    showError(e.message);
+    setAnswerVisible(true);
+  } finally {
+    state.busy = false;
+  }
+}
+
+function renderFeedback(feedback) {
+  // feedback может быть объектом (структурный разбор) или строкой (деградация,
+  // если модель дважды не собрала структуру) — контракт /negotiation/turn это
+  // явно допускает, клиент обязан проверять тип.
+  if (typeof feedback === "string") {
+    return `<p>${escapeHtml(feedback)}</p>`;
+  }
+  const parts = [];
+  if (feedback.broke_quote) {
+    // broke_quote — цитата реплики ИГРОКА, на сложности 3 это свободный текст,
+    // который сам пользователь напечатал: экранируем обязательно, иначе XSS.
+    parts.push(`<p><b>Где сломалось:</b> «${escapeHtml(feedback.broke_quote)}»</p>`);
+    parts.push(`<p>${escapeHtml(feedback.broke_reason)}</p>`);
+  }
+  if (feedback.what_worked) {
+    parts.push(`<p><b>Что сработало:</b> ${escapeHtml(feedback.what_worked)}</p>`);
+  }
+  if (feedback.alternative_phrasing) {
+    parts.push(`<p><b>Как стоило сказать:</b> ${escapeHtml(feedback.alternative_phrasing)}</p>`);
+  }
+  parts.push(`<p><b>Совет:</b> ${escapeHtml(feedback.tip)}</p>`);
+  return parts.join("");
+}
+
+async function showResult(result) {
+  const ok = result.outcome === "success";
+  $("verdict").textContent = ok ? "Успех" : "Провал";
+  $("verdict").className = "verdict " + (ok ? "ok" : "no");
+  $("scoreLine").textContent = result.score != null ? `оценка ${result.score} из 10` : "";
+  $("feedback").innerHTML = renderFeedback(result.feedback);
+  $("xpLine").textContent = `+${result.xp_gained} XP · всего ${result.xp} · уровень ${result.level}`;
+  $("levelUp").classList.toggle("hidden", !result.level_up);
+  $("result").classList.remove("hidden");
+
+  // перечитываем прогресс из базы, чтобы видеть реальное состояние, а не пересчёт
+  try {
+    renderProgress(await api("GET", "/user/me"));
+  } catch (e) {
+    /* не критично: итог уже показан */
+  }
+  loadStreakAndAttempts();   // стрик и список попыток обновились этим же ходом
+}
+
+$("reply").addEventListener("keydown", e => {
+  if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) $("sendBtn").click();
+});
+
+$("startBtn").onclick = startGame;
+$("againBtn").onclick = () => {
+  $("game").classList.add("hidden");
+  $("setup").classList.remove("hidden");
+  refreshStartButton();
+};
+$("sendBtn").onclick = () => {
+  const text = $("reply").value.trim();
+  if (!text) { showError("Пустой ответ не принимается"); return; }
+  $("reply").value = "";
+  sendTurn({ message: text }, text);
+};
+$("signOutLink").onclick = async e => {
+  e.preventDefault();
+  await sb.auth.signOut();   // onAuthStateChange сам покажет экран входа
+};
+$("signInBtn").onclick = async () => {
+  clearError();
+  const email = $("emailInput").value.trim();
+  if (!email) { showError("Введите почту"); return; }
+  $("signInBtn").disabled = true;
+  try {
+    const { error } = await sb.auth.signInWithOtp({
+      email,
+      options: { emailRedirectTo: window.location.origin + window.location.pathname },
+    });
+    if (error) throw error;
+    $("signinForm").classList.add("hidden");
+    $("signinSent").classList.remove("hidden");
+  } catch (e) {
+    showError("Не получилось отправить письмо: " + e.message);
+  } finally {
+    $("signInBtn").disabled = false;
+  }
+};
+$("customSituation").addEventListener("input", updateCustomCounter);
+
+renderModes();
+renderThemes();
+updateCustomCounter();
+initAuth();
+</script>
+</body>
+</html>

@@ -15,6 +15,11 @@ load_dotenv()
 SUPABASE_URL = os.getenv("SUPABASE_URL")
 SUPABASE_KEY = os.getenv("SUPABASE_KEY")
 
+# Секрет для локальной проверки JWT, которые выпускает Supabase Auth (magic
+# link). Project Settings -> API -> JWT Settings -> JWT Secret в дашборде.
+# Без него auth.py не может проверить ни один токен — все запросы получат 401.
+SUPABASE_JWT_SECRET = os.getenv("SUPABASE_JWT_SECRET")
+
 # Домены фронтенда, через запятую. По умолчанию всё — на время разработки.
 CORS_ORIGINS = [
     origin.strip()

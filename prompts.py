@@ -12,7 +12,15 @@ prompts.py — читаемые системные промпты генерат
 медленнее на каждом ходу. Если нужно развести генерацию реплики и оценку по
 разным вызовам — обсудите это с бэкендером 1 и АИ-инженером ДО того, как менять,
 это осознанный компромисс скорость/архитектура, а не забытый рефакторинг.
-"""
-from ai.prompts import START_SYSTEM as GENERATOR_PROMPT, TURN_SYSTEM as JUDGE_PROMPT
 
-__all__ = ["GENERATOR_PROMPT", "JUDGE_PROMPT"]
+CUSTOM_GENERATOR_PROMPT — генератор для mode="custom" (ситуация от пользователя
+текстом вместо темы). Тоже один вызов: он и проверяет, что текст вообще годится
+под переговоры (ветка отказа), и сразу собирает сценарий, если годится.
+"""
+from ai.prompts import (
+    START_SYSTEM as GENERATOR_PROMPT,
+    CUSTOM_START_SYSTEM as CUSTOM_GENERATOR_PROMPT,
+    TURN_SYSTEM as JUDGE_PROMPT,
+)
+
+__all__ = ["GENERATOR_PROMPT", "CUSTOM_GENERATOR_PROMPT", "JUDGE_PROMPT"]

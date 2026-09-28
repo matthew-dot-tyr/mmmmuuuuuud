@@ -31,3 +31,8 @@ htmlcov/
 
 # Local databases
 *.db
+
+# Локальные артефакты play.py/play.html — .play_token хранит настоящий
+# Supabase access_token, коммитить нельзя.
+.play_user
+.play_token

@@ -16,6 +16,7 @@ sys.path.insert(0, ROOT)
 os.environ.setdefault("SUPABASE_URL", "http://localhost:54321")
 os.environ.setdefault("SUPABASE_KEY", "test-key")
 os.environ.setdefault("OPENROUTER_API_KEY", "test-key")
+os.environ.setdefault("SUPABASE_JWT_SECRET", "test-jwt-secret-at-least-32-bytes-long")
 
 
 class _NoDatabase:

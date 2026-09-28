@@ -1,9 +1,12 @@
-"""Прогресс игрока: уровни, начисление XP, доступ к сложностям.
+"""Прогресс игрока: уровни, начисление XP, доступ к сложностям, стрик.
 
 Тут только чистая логика, без обращений к базе, поэтому файл импортируется
 и тестируется без Supabase и без ключей в .env. db.py переэкспортирует
 compute_level и xp_to_next_level, чтобы старые скрипты не сломались.
 """
+
+from datetime import date, timedelta
+from typing import Optional, Union
 
 from config import MAX_LEVEL, XP_PER_LEVEL
 
@@ -57,3 +60,31 @@ def calculate_xp_gain(result: str, score, difficulty: int) -> int:
 def can_play_difficulty(level: int, difficulty: int) -> bool:
     """Сложность N открыта только игрокам уровня N и выше."""
     return 1 <= difficulty <= level
+
+
+def _as_date(value: Union[str, date, None]) -> Optional[date]:
+    """Supabase отдаёт date-колонки строкой ("YYYY-MM-DD") через REST — приводим
+    к date, чтобы дальше сравнивать без ручного парсинга на каждом вызове."""
+    if value is None or isinstance(value, date):
+        return value
+    return date.fromisoformat(value)
+
+
+def compute_streak(last_practiced_date: Union[str, date, None], streak_count: int,
+                    today: Optional[date] = None) -> int:
+    """Новый streak_count после того, как игрок завершил попытку сегодня.
+
+    - уже практиковался сегодня -> стрик не меняется (нельзя накрутить
+      несколькими попытками за один день);
+    - последний раз был вчера -> +1;
+    - иначе (первый раз или пропущен хотя бы один день) -> сброс на 1.
+    """
+    today = today or date.today()
+    last = _as_date(last_practiced_date)
+    streak_count = streak_count or 0
+
+    if last == today:
+        return streak_count
+    if last == today - timedelta(days=1):
+        return streak_count + 1
+    return 1
