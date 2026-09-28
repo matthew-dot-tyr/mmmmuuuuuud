@@ -59,9 +59,11 @@ export default function ResultScreen({ result, difficulty, userBefore, onContinu
       )}
 
       <div className="spacer" />
-      <button type="button" className={`btn${win ? " green" : ""}`} onClick={onContinue}>
-        Продолжить
-      </button>
+      <div className="cta-bar">
+        <button type="button" className={`btn${win ? " green" : ""}`} onClick={onContinue}>
+          Продолжить
+        </button>
+      </div>
     </main>
   );
 }

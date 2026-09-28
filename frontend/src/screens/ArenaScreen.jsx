@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import Raccoon from "../components/Raccoon";
 import TorgSays from "../components/TorgSays";
 import { friendlyError, sendTurn } from "../lib/api";
-import { MESSAGE_MAX, moodFor, wearsTie } from "../lib/game";
+import { MESSAGE_MAX, moodFor, peppers, wearsTie } from "../lib/game";
 
 const RETRYABLE = new Set([0, 503]);
+const LETTERS = "АБВГДЕ";
 
 export default function ArenaScreen({ battle, onExit, onFinish }) {
   const { start, difficulty } = battle;
   // session_token — непрозрачная строка: всегда шлём последний полученный.
   const token = useRef(start.session_token);
-  const chatRef = useRef(null);
+  const feedRef = useRef(null);
+  const lastThemRef = useRef(null);
+  const replyRef = useRef(null);
   const [messages, setMessages] = useState([{ from: "them", text: start.counterpart_opening }]);
   const [options, setOptions] = useState(start.options ?? null);
   const [selected, setSelected] = useState(null);
@@ -21,11 +24,33 @@ export default function ArenaScreen({ battle, onExit, onFinish }) {
   const [final, setFinal] = useState(null);
 
   const turn = messages.filter((m) => m.from === "them").length;
+  const lastThemIndex = messages.findLastIndex((m) => m.from === "them");
+
+  // Новая реплика соперника — показываем её начало (варианты ниже, до них доскроллят).
+  // Своя реплика или «Торг думает…» — в самый низ ленты.
+  useEffect(() => {
+    const feed = feedRef.current;
+    if (!feed || messages.length < 2) return;
+    const last = messages[messages.length - 1];
+    if (last.from === "them" && lastThemRef.current) {
+      feed.scrollTo({ top: lastThemRef.current.offsetTop - 12, behavior: "smooth" });
+    } else {
+      feed.scrollTo({ top: feed.scrollHeight, behavior: "smooth" });
+    }
+  }, [messages]);
 
   useEffect(() => {
-    const el = chatRef.current;
-    if (el) el.scrollTo({ top: el.scrollHeight, behavior: "smooth" });
-  }, [messages, busy, error]);
+    const feed = feedRef.current;
+    if (busy && feed) feed.scrollTo({ top: feed.scrollHeight, behavior: "smooth" });
+  }, [busy]);
+
+  // Поле ввода растёт по тексту, но не выше ~5 строк.
+  useLayoutEffect(() => {
+    const el = replyRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 132)}px`;
+  }, [text]);
 
   async function send(body, shownText) {
     if (shownText) setMessages((m) => [...m, { from: "me", text: shownText }]);
@@ -77,49 +102,84 @@ export default function ArenaScreen({ battle, onExit, onFinish }) {
     if (final || window.confirm("Покинуть арену? Этот бой не засчитается.")) onExit();
   }
 
-  const canAnswer = !busy && !retryBody && (options ? Boolean(selected) : Boolean(text.trim()));
+  const locked = busy || Boolean(retryBody);
+  const canAnswer = !locked && (options ? Boolean(selected) : Boolean(text.trim()));
+  const showOptions = options && !final && !busy && !retryBody;
 
   return (
     <main className="screen arena">
       <header className="foe">
-        <Raccoon mood={moodFor(difficulty)} size={54} tie={wearsTie(start.counterpart_role)} />
+        <Raccoon mood={moodFor(difficulty)} size={42} tie={wearsTie(start.counterpart_role)} />
         <div className="who">
           <b>{start.counterpart_role}</b>
-          <div className="tags">
-            {start.counterpart_tone && <span className="tag">{start.counterpart_tone}</span>}
-            {start.counterpart_goal && <span className="tag goal">Цель: {start.counterpart_goal}</span>}
-          </div>
+          <small>
+            {final ? "Бой окончен" : `Ход ${turn}`} · {peppers(difficulty)}
+          </small>
         </div>
         <button type="button" className="icon-btn" onClick={exit} aria-label="Покинуть арену">
           ×
         </button>
       </header>
 
-      <details className="situation">
-        <summary>Ситуация</summary>
-        <p>{start.scenario_text}</p>
-      </details>
+      <div className="feed" ref={feedRef}>
+        <section className="brief" aria-label="Ситуация">
+          <p className="sub">Ситуация</p>
+          <p>{start.scenario_text}</p>
+          {start.counterpart_tone && (
+            <p className="brief-row">
+              <span className="tag">Характер</span> {start.counterpart_tone}
+            </p>
+          )}
+          {start.counterpart_goal && (
+            <p className="brief-row">
+              <span className="tag goal">Цель соперника</span> {start.counterpart_goal}
+            </p>
+          )}
+        </section>
 
-      <div className="chat" ref={chatRef} aria-live="polite">
-        <span className="round">{final ? "Бой окончен" : `Ход ${turn}`}</span>
-        {messages.map((m, i) => (
-          <div key={i} className={`msg ${m.from} fade-in`}>
-            {m.text}
-          </div>
-        ))}
-        {busy && (
-          <div className="typing" role="status">
-            <span className="dots" aria-hidden="true">
-              <i />
-              <i />
-              <i />
-            </span>
-            Торг думает…
-          </div>
+        <div className="chat" aria-live="polite">
+          {messages.map((m, i) => (
+            <div key={i} ref={i === lastThemIndex ? lastThemRef : undefined} className={`msg ${m.from} fade-in`}>
+              {m.text}
+            </div>
+          ))}
+          {busy && (
+            <div className="typing" role="status">
+              <span className="dots" aria-hidden="true">
+                <i />
+                <i />
+                <i />
+              </span>
+              Торг думает…
+            </div>
+          )}
+        </div>
+
+        {showOptions && (
+          <section className="choices fade-in" aria-label="Варианты ответа">
+            <p className="sub">Твой ответ</p>
+            <div role="radiogroup" aria-label="Варианты ответа" className="choice-list">
+              {options.map((o, i) => (
+                <button
+                  key={o.option_id}
+                  type="button"
+                  role="radio"
+                  aria-checked={selected === o.option_id}
+                  className={`opt${selected === o.option_id ? " sel" : ""}`}
+                  onClick={() => setSelected(o.option_id)}
+                >
+                  <span className="opt-letter" aria-hidden="true">
+                    {LETTERS[i] ?? i + 1}
+                  </span>
+                  <span>{o.text}</span>
+                </button>
+              ))}
+            </div>
+          </section>
         )}
       </div>
 
-      <div className="opts">
+      <footer className="dock">
         {error && (
           <TorgSays
             action={
@@ -138,55 +198,40 @@ export default function ArenaScreen({ battle, onExit, onFinish }) {
           <button type="button" className="btn green" onClick={() => onFinish(final)}>
             Итоги боя
           </button>
-        ) : retryBody ? null : (
-          <>
-            {options ? (
-              <div className="stack" role="radiogroup" aria-label="Варианты ответа" style={{ gap: 8 }}>
-                {options.map((o) => (
-                  <button
-                    key={o.option_id}
-                    type="button"
-                    role="radio"
-                    aria-checked={selected === o.option_id}
-                    className={`opt${selected === o.option_id ? " sel" : ""}`}
-                    onClick={() => setSelected(o.option_id)}
-                    disabled={busy || Boolean(retryBody)}
-                  >
-                    {o.text}
-                  </button>
-                ))}
-              </div>
-            ) : (
-              <>
-                <label className="visually-hidden" htmlFor="reply">
-                  Твой ответ
-                </label>
-                <textarea
-                  id="reply"
-                  className="field"
-                  rows={3}
-                  maxLength={MESSAGE_MAX}
-                  placeholder="Твой ответ своими словами…"
-                  value={text}
-                  onChange={(e) => setText(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) answer();
-                  }}
-                  disabled={busy || Boolean(retryBody)}
-                />
-                {text.length > MESSAGE_MAX - 200 && (
-                  <div className="counter">
-                    {text.length} / {MESSAGE_MAX}
-                  </div>
-                )}
-              </>
-            )}
-            <button type="button" className="btn green" onClick={answer} disabled={!canAnswer}>
-              Ответить
+        ) : retryBody ? null : options ? (
+          <button type="button" className="btn green" onClick={answer} disabled={!canAnswer}>
+            {busy ? "Торг думает…" : selected ? "Ответить" : "Выбери ответ выше"}
+          </button>
+        ) : (
+          <div className="composer">
+            <label className="visually-hidden" htmlFor="reply">
+              Твой ответ
+            </label>
+            <textarea
+              id="reply"
+              ref={replyRef}
+              className="field"
+              rows={1}
+              maxLength={MESSAGE_MAX}
+              placeholder="Твой ответ своими словами…"
+              value={text}
+              onChange={(e) => setText(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) answer();
+              }}
+              disabled={locked}
+            />
+            <button type="button" className="btn green send" onClick={answer} disabled={!canAnswer} aria-label="Ответить">
+              ➤
             </button>
-          </>
+          </div>
         )}
-      </div>
+        {!options && !final && !retryBody && text.length > MESSAGE_MAX - 200 && (
+          <div className="counter">
+            {text.length} / {MESSAGE_MAX}
+          </div>
+        )}
+      </footer>
     </main>
   );
 }

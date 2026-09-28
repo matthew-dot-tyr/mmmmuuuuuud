@@ -3,9 +3,41 @@ import Raccoon from "../components/Raccoon";
 import ThemeIcon from "../components/ThemeIcon";
 import TorgSays from "../components/TorgSays";
 import { friendlyError, getMe, startNegotiation } from "../lib/api";
-import { CUSTOM_MAX, CUSTOM_MIN, DIFFICULTIES, THEMES, peppers } from "../lib/game";
+import { CUSTOM_MAX, CUSTOM_MIN, DIFFICULTIES, LOSS_XP, THEMES, maxWinXp, peppers } from "../lib/game";
 
 const CUSTOM = "custom";
+
+// Что ждёт в бою при текущем выборе: соперник говорит «своим голосом», ниже — формат и награда.
+function Preview({ theme, difficulty }) {
+  const d = DIFFICULTIES.find((x) => x.level === difficulty) ?? DIFFICULTIES[0];
+  const t = THEMES.find((x) => x.slug === theme);
+  return (
+    <section className="preview" aria-live="polite">
+      <p className="sub">Что тебя ждёт</p>
+      <div className="preview-foe">
+        <Raccoon key={d.level} mood={d.mood} size={56} tie={theme === "work"} className="fade-in" />
+        <div className="preview-quote fade-in" key={`${d.level}-${theme}`}>
+          «{d.quote}»
+          <small>{t ? `${t.title}: ${t.about}` : "Соперника соберём по твоему описанию"}</small>
+        </div>
+      </div>
+      <div className="preview-facts">
+        <div>
+          <b>{d.answers}</b>
+          <span>формат ответа</span>
+        </div>
+        <div className="win">
+          <b>до +{maxWinXp(d.level)}</b>
+          <span>XP за победу</span>
+        </div>
+        <div className="lose">
+          <b>+{LOSS_XP}</b>
+          <span>XP за поражение</span>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export default function SetupScreen({ user, onUser, onBack, onStart }) {
   const unlocked = user?.unlocked_difficulties ?? [1];
@@ -143,6 +175,8 @@ export default function SetupScreen({ user, onUser, onBack, onStart }) {
         })}
       </div>
 
+      <Preview theme={theme} difficulty={difficulty} />
+
       {rejection && theme !== CUSTOM && <TorgSays mood="stubborn">{rejection}</TorgSays>}
       {error && (
         <TorgSays
@@ -159,14 +193,16 @@ export default function SetupScreen({ user, onUser, onBack, onStart }) {
       )}
 
       <div className="spacer" />
-      {busy && (
-        <div className="preparing" role="status">
-          <Raccoon mood="sly" size={34} className="bob" /> Торг готовит сценарий…
-        </div>
-      )}
-      <button type="button" className="btn" onClick={start} disabled={!ready}>
-        В бой
-      </button>
+      <div className="cta-bar">
+        {busy && (
+          <div className="preparing" role="status">
+            <Raccoon mood="sly" size={34} className="bob" /> Торг готовит сценарий…
+          </div>
+        )}
+        <button type="button" className="btn" onClick={start} disabled={!ready}>
+          В бой
+        </button>
+      </div>
     </main>
   );
 }
