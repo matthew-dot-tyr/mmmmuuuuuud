@@ -1,4 +1,4 @@
-# bolshie-chleni
+# prochtenie
 
 Backend API тренажёра переговоров: FastAPI + Qwen через OpenRouter + Supabase.
 
