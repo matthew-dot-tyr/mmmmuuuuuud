@@ -1,0 +1,327 @@
+<!doctype html>
+<html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Арена переговоров</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Nunito:wght@600;700;800;900&family=Rubik:wght@400;500;600&display=swap">
+<style>
+:root{
+  --bg:#FFF4E8; --ink:#3B2A20; --muted:#8E7566; --line:#F1DCC8; --card:#FFFFFF;
+  --teal:#FF8A3D; --teal-d:#D8641A; --teal-l:#FFE7D4;
+  --green:#72BF44; --green-d:#529A2A; --green-l:#EDF7DF;
+  --coral:#E8505B; --coral-d:#B83440; --coral-l:#FDE3E2;
+  --gold:#FFC23D; --gold-d:#D89A12; --gold-l:#FFF4D6;
+  --grape:#C9628A; --grape-l:#FBE5EE;
+  --display:"Nunito",ui-rounded,"Segoe UI",system-ui,sans-serif;
+  --body:"Rubik","Segoe UI",system-ui,sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--body);font-size:15px;line-height:1.45;padding-inline:20px;padding-block:32px 56px}
+.wrap{max-width:1500px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+header{display:flex;flex-direction:column;gap:10px;max-width:720px}
+.brand{display:flex;align-items:center;gap:12px}
+.brand h1{font-family:var(--display);font-weight:900;font-size:clamp(26px,4vw,38px);letter-spacing:.02em;margin:0;text-wrap:balance}
+.brand h1 span{color:var(--teal)}
+header p{margin:0;color:var(--muted);max-width:62ch}
+.legend{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:13px;font-weight:500;background:var(--card);border:2px solid var(--line);border-radius:999px;padding:4px 10px 4px 6px}
+.chip i{width:14px;height:14px;border-radius:50%;display:block}
+
+.screens{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,265px),1fr));gap:28px 20px;align-items:start}
+.shot{display:flex;flex-direction:column;gap:12px}
+.cap{display:flex;flex-direction:column;gap:2px;padding-inline:4px}
+.cap b{font-family:var(--display);font-weight:800;font-size:17px}
+.cap small{color:var(--muted);font-size:13px}
+
+.phone{background:var(--card);border:3px solid #EBCFB6;border-radius:34px;box-shadow:0 6px 0 #EBCFB6;overflow:hidden;display:flex;flex-direction:column;height:650px;max-width:100%}
+.status{display:flex;justify-content:space-between;font-size:11px;font-weight:600;color:var(--muted);padding:10px 20px 4px;font-family:var(--display)}
+.scr{flex:1;display:flex;flex-direction:column;padding:10px 16px 18px;gap:14px;min-height:0}
+
+/* 3D buttons */
+.btn{font-family:var(--display);font-weight:900;font-size:15px;letter-spacing:.06em;text-transform:uppercase;border:0;border-radius:16px;padding:14px 16px;color:#fff;background:var(--teal);box-shadow:0 5px 0 var(--teal-d);cursor:pointer;width:100%;transition:transform .08s,box-shadow .08s}
+.btn:active{transform:translateY(5px);box-shadow:0 0 0 var(--teal-d)}
+.btn:focus-visible,.opt:focus-visible,.tile:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.btn.green{background:var(--green);box-shadow:0 5px 0 var(--green-d)}
+.btn.ghost{background:var(--card);color:var(--teal);box-shadow:0 4px 0 var(--line);border:2px solid var(--line)}
+
+/* login */
+.login{justify-content:center;align-items:center;text-align:center;gap:16px}
+.login h2{font-family:var(--display);font-weight:900;font-size:26px;line-height:1.05;margin:0}
+.login h2 span{color:var(--teal)}
+.login p{margin:0;color:var(--muted);font-size:14px;max-width:24ch}
+.field{width:100%;border:2px solid var(--line);border-radius:14px;padding:12px 14px;font:inherit;background:#FFF9F3;text-align:left;color:var(--muted)}
+.stack{display:flex;flex-direction:column;gap:10px;width:100%}
+.link{font-family:var(--display);font-weight:800;color:var(--teal);font-size:13px;letter-spacing:.04em;text-transform:uppercase}
+
+/* home */
+.topbar{display:flex;justify-content:space-between;align-items:center}
+.stat{display:flex;align-items:center;gap:6px;font-family:var(--display);font-weight:900;font-size:16px}
+.lvl{position:relative;width:34px;height:34px;display:grid;place-items:center}
+.lvl svg{position:absolute;inset:0}
+.lvl b{position:relative;font-family:var(--display);font-weight:900;font-size:13px;color:#7A5200}
+.hero{background:var(--teal-l);border-radius:24px;padding:14px;display:flex;flex-direction:column;align-items:center;gap:6px;text-align:center}
+.bubble{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:8px 12px;font-size:13px;font-weight:500;position:relative}
+.xpbox{display:flex;flex-direction:column;gap:6px}
+.xprow{display:flex;justify-content:space-between;font-family:var(--display);font-weight:800;font-size:13px}
+.xprow span:last-child{color:var(--muted);font-variant-numeric:tabular-nums}
+.bar{height:16px;border-radius:999px;background:#F5E6D8;overflow:hidden;position:relative}
+.bar i{display:block;height:100%;border-radius:999px;background:var(--gold);box-shadow:inset 0 -4px 0 rgba(0,0,0,.08)}
+.bar i::after{content:"";position:absolute;left:8px;right:8px;top:3px;height:4px;border-radius:4px;background:rgba(255,255,255,.45);width:calc(var(--w) - 16px)}
+.recent{display:flex;flex-direction:column;gap:8px}
+.recent h4{margin:0;font-family:var(--display);font-weight:800;font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.row{display:flex;align-items:center;gap:10px;border:2px solid var(--line);border-radius:14px;padding:8px 10px;font-size:13px}
+.row .dot{width:28px;height:28px;border-radius:9px;display:grid;place-items:center;font-weight:900;font-family:var(--display);color:#fff;font-size:13px}
+.row .xp{margin-left:auto;font-family:var(--display);font-weight:900;color:var(--gold-d);font-variant-numeric:tabular-nums}
+
+/* setup */
+.h{font-family:var(--display);font-weight:900;font-size:20px;margin:0;line-height:1.15}
+.sub{font-family:var(--display);font-weight:800;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);margin:0}
+.tiles{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.tile{border:2px solid var(--line);border-radius:18px;box-shadow:0 4px 0 var(--line);padding:10px;display:flex;flex-direction:column;gap:6px;font-family:var(--display);font-weight:800;font-size:13px;line-height:1.15;background:var(--card);cursor:pointer;text-align:left;color:var(--ink)}
+.tile .ic{width:34px;height:34px;border-radius:11px;display:grid;place-items:center}
+.tile.sel{border-color:var(--teal);box-shadow:0 4px 0 var(--teal);background:var(--teal-l)}
+.tile.wide{grid-column:1/-1;flex-direction:row;align-items:center;gap:10px;border-style:dashed}
+.diff{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.dcard{border:2px solid var(--line);border-radius:14px;padding:8px 6px;text-align:center;display:flex;flex-direction:column;gap:3px;align-items:center;box-shadow:0 3px 0 var(--line)}
+.dcard .pep{display:flex;gap:1px;height:16px}
+.dcard b{font-family:var(--display);font-weight:800;font-size:11.5px;line-height:1.1}
+.dcard.sel{border-color:var(--coral);box-shadow:0 3px 0 var(--coral);background:var(--coral-l)}
+.spacer{flex:1}
+.dcard.locked{filter:grayscale(1);opacity:.55;cursor:not-allowed!important;border-style:dashed}
+.dcard small{font-size:10.5px;color:var(--muted)}
+.lvlbanner{width:100%;background:var(--gold);color:#5A3A00;border-radius:16px;box-shadow:0 4px 0 var(--gold-d);padding:9px 12px;font-family:var(--display);font-weight:900;font-size:14px;display:flex;flex-direction:column;gap:1px}
+.lvlbanner small{font-weight:700;font-size:12px}
+
+/* arena */
+.arena{padding:0;gap:0}
+.foe{display:flex;gap:10px;align-items:center;padding:8px 16px 12px;border-bottom:2px solid var(--line)}
+.foe .who{display:flex;flex-direction:column;gap:3px;min-width:0}
+.foe .who b{font-family:var(--display);font-weight:900;font-size:15px}
+.tags{display:flex;gap:5px;flex-wrap:wrap}
+.tag{font-size:10.5px;font-weight:600;border-radius:999px;padding:2px 8px;background:var(--grape-l);color:#9A3E64}
+.tag.c{background:var(--coral-l);color:var(--coral-d)}
+.x{margin-left:auto;align-self:flex-start;color:var(--muted);font-size:20px;line-height:1}
+.round{align-self:center;font-family:var(--display);font-weight:900;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);background:#FBEEE2;border-radius:999px;padding:3px 10px}
+.chat{flex:1;display:flex;flex-direction:column;gap:10px;padding:12px 16px;overflow:hidden;background:#FFFBF6}
+.msg{max-width:84%;border-radius:18px;padding:9px 12px;font-size:13px;line-height:1.35}
+.msg.them{background:var(--card);border:2px solid var(--line);border-bottom-left-radius:6px}
+.msg.me{align-self:flex-end;background:var(--teal);color:#fff;border-bottom-right-radius:6px;box-shadow:0 3px 0 var(--teal-d)}
+.opts{display:flex;flex-direction:column;gap:8px;padding:12px 16px 16px;border-top:2px solid var(--line)}
+.opt{font:inherit;font-size:13px;text-align:left;border:2px solid var(--line);border-radius:14px;padding:9px 12px;background:var(--card);box-shadow:0 3px 0 var(--line);cursor:pointer;color:var(--ink)}
+.opt.sel{border-color:var(--teal);box-shadow:0 3px 0 var(--teal);background:var(--teal-l)}
+.opts .btn{margin-top:2px;padding:11px}
+
+/* result */
+.result{background:var(--green-l);align-items:center;text-align:center;gap:12px;position:relative;overflow:hidden}
+.result h2{font-family:var(--display);font-weight:900;font-size:34px;letter-spacing:.04em;color:var(--green-d);margin:0;line-height:1}
+.score{display:flex;gap:10px;width:100%}
+.sc{flex:1;border-radius:16px;border:2px solid;padding:8px 6px 10px;background:var(--card);display:flex;flex-direction:column;gap:2px}
+.sc span{font-family:var(--display);font-weight:900;font-size:11px;letter-spacing:.06em;text-transform:uppercase;color:#fff;margin:-8px -6px 4px;padding:3px;border-radius:12px 12px 0 0}
+.sc b{font-family:var(--display);font-weight:900;font-size:22px;font-variant-numeric:tabular-nums}
+.sc.a{border-color:var(--gold)} .sc.a span{background:var(--gold)} .sc.a b{color:var(--gold-d)}
+.sc.b{border-color:var(--green)} .sc.b span{background:var(--green)} .sc.b b{color:var(--green-d)}
+.sc.c{border-color:var(--coral)} .sc.c span{background:var(--coral)} .sc.c b{color:var(--coral-d)}
+.fb{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:10px 12px;text-align:left;font-size:12.5px;width:100%;display:flex;flex-direction:column;gap:4px}
+.fb b{font-family:var(--display);font-weight:900;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.fb p{margin:0}
+.fb .good{color:var(--green-d)} .fb .bad{color:var(--coral-d)}
+.lvlup{width:100%;display:flex;flex-direction:column;gap:5px}
+.confetti{position:absolute;inset:0;pointer-events:none;z-index:0}
+.result>*:not(.confetti){position:relative;z-index:1}
+.confetti i{position:absolute;width:8px;height:12px;border-radius:2px;top:-14px;animation:fall 3.2s linear infinite}
+@keyframes fall{to{transform:translateY(640px) rotate(540deg)}}
+@keyframes fillxp{from{width:var(--from)}to{width:var(--w)}}
+.animxp{animation:fillxp 1.6s cubic-bezier(.3,.8,.3,1) .4s both}
+@keyframes bob{50%{transform:translateY(-4px)}}
+.bob{animation:bob 2.4s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){.confetti,.animxp,.bob{animation:none}}
+
+.notes{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,300px),1fr));gap:14px}
+.note{background:var(--card);border:2px solid var(--line);border-radius:20px;padding:16px 18px;display:flex;flex-direction:column;gap:6px}
+.note h3{margin:0;font-family:var(--display);font-weight:900;font-size:16px}
+.note p{margin:0;font-size:14px;color:#5A4538}
+.note code{font-size:12.5px;background:#FBEEE2;padding:1px 5px;border-radius:5px}
+</style>
+
+<div class="wrap">
+<header>
+  <div class="brand">
+    <span data-rac="happy" data-size="52"></span>
+    <h1>АРЕНА <span>ПЕРЕГОВОРОВ</span></h1>
+  </div>
+  <p>Черновые макеты пяти экранов MVP в игровом стиле: светлый фон, толстые скругления, объёмные кнопки и маскот-енот Торг, который и ведёт игрока, и играет роль соперника. Кнопки можно понажимать.</p>
+  <div class="legend">
+    <span class="chip"><i style="background:var(--teal)"></i>Оранжевый · действия</span>
+    <span class="chip"><i style="background:var(--green)"></i>Зелёный · победа</span>
+    <span class="chip"><i style="background:var(--coral)"></i>Малиновый · поражение, сложность</span>
+    <span class="chip"><i style="background:var(--gold)"></i>Золотой · XP и уровень</span>
+  </div>
+</header>
+
+<section class="screens">
+
+<!-- 1 LOGIN -->
+<div class="shot">
+<div class="phone"><div class="status"><span>9:41</span><span>●●● 100%</span></div>
+<div class="scr login">
+  <span class="bob" data-rac="happy" data-size="120"></span>
+  <h2>АРЕНА<br><span>ПЕРЕГОВОРОВ</span></h2>
+  <p>Тренируй переговоры с ИИ-соперником и прокачивай уровень</p>
+  <div class="stack">
+    <div class="field">you@mail.ru</div>
+    <button class="btn" id="b-login">Получить ссылку</button>
+  </div>
+  <p style="font-size:12.5px">Пришлём ссылку для входа на почту. Пароль не нужен, аккаунт создастся сам.</p>
+</div></div>
+<div class="cap"><b>1 · Вход</b><small>Supabase Auth, вход по ссылке из письма (magic link)</small></div>
+</div>
+
+<!-- 2 HOME -->
+<div class="shot">
+<div class="phone"><div class="status"><span>9:41</span><span>●●● 100%</span></div>
+<div class="scr">
+  <div class="topbar">
+    <div class="stat"><span class="lvl"><svg viewBox="0 0 34 34"><path d="M17 2l4.3 9 9.7 1.2-7.1 6.7 1.9 9.6L17 23.8l-8.8 4.7 1.9-9.6L3 12.2l9.7-1.2z" fill="#FFC23D" stroke="#D89A12" stroke-width="2" stroke-linejoin="round"/></svg><b>2</b></span> Уровень 2</div>
+    <div class="stat" style="color:var(--coral)">🔥 3 дня</div>
+  </div>
+  <div class="hero">
+    <div class="bubble">Готов выбить себе скидку?</div>
+    <span class="bob" data-rac="happy" data-size="110"></span>
+  </div>
+  <div class="xpbox">
+    <div class="xprow"><span>До уровня 3</span><span>160 / 200 XP</span></div>
+    <div class="bar"><i style="width:60%;--w:60%"></i></div>
+  </div>
+  <button class="btn" id="b-arena">На арену</button>
+  <div class="recent">
+    <h4>Последние бои</h4>
+    <div class="row"><span class="dot" style="background:var(--green)">8</span>Прибавка к зарплате<span class="xp">+64</span></div>
+    <div class="row"><span class="dot" style="background:var(--coral)">✕</span>Скидка на ноутбук<span class="xp">+5</span></div>
+  </div>
+</div></div>
+<div class="cap"><b>2 · Профиль бойца</b><small>Уровень (макс. 3), стрик дней подряд, XP, последние бои из /attempts</small></div>
+</div>
+
+<!-- 3 SETUP -->
+<div class="shot">
+<div class="phone"><div class="status"><span>9:41</span><span>●●● 100%</span></div>
+<div class="scr">
+  <div class="topbar"><span style="font-size:20px;color:var(--muted)">←</span><span class="sub">Подготовка к бою</span><span style="width:20px"></span></div>
+  <p class="sub">Тема</p>
+  <div class="tiles">
+    <button class="tile sel" id="t-work"><span class="ic" style="background:var(--teal)"><svg width="20" height="20" viewBox="0 0 20 20"><rect x="2" y="6" width="16" height="11" rx="3" fill="#fff"/><rect x="7" y="3" width="6" height="4" rx="1.5" fill="none" stroke="#fff" stroke-width="2"/></svg></span>Работа и карьера</button>
+    <button class="tile" id="t-money"><span class="ic" style="background:var(--gold)"><svg width="20" height="20" viewBox="0 0 20 20"><circle cx="10" cy="10" r="7.5" fill="#fff"/><text x="10" y="14" text-anchor="middle" font-family="Nunito" font-weight="900" font-size="11" fill="#D89A12">₽</text></svg></span>Деньги и бизнес</button>
+    <button class="tile" id="t-buy"><span class="ic" style="background:var(--grape)"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M3 9l7-6 7 6v8H3z" fill="#fff"/><rect x="8" y="12" width="4" height="5" fill="#C9628A"/></svg></span>Покупки и аренда</button>
+    <button class="tile" id="t-life"><span class="ic" style="background:var(--coral)"><svg width="20" height="20" viewBox="0 0 20 20"><path d="M10 17s-7-4.3-7-9a4 4 0 017-2.6A4 4 0 0117 8c0 4.7-7 9-7 9z" fill="#fff"/></svg></span>Личное и быт</button>
+    <button class="tile wide" id="t-own"><span class="ic" style="background:var(--teal-l);color:var(--teal-d);font-size:18px">✎</span><span>Своя ситуация<br><small style="font-family:var(--body);font-weight:400;color:var(--muted)">Опиши переговоры своими словами</small></span></button>
+  </div>
+  <p class="sub">Соперник</p>
+  <div class="diff">
+    <div class="dcard"><span data-rac="happy" data-size="36"></span><div class="pep">🌶</div><b>Хочет договориться</b></div>
+    <div class="dcard sel"><span data-rac="stubborn" data-size="36"></span><div class="pep">🌶🌶</div><b>Держит позиции</b></div>
+    <div class="dcard locked"><span data-rac="sly" data-size="36"></span><div class="pep">🔒</div><b>Стоит насмерть</b><small>с 3 уровня</small></div>
+  </div>
+  <div class="spacer"></div>
+  <button class="btn" id="b-start">В бой</button>
+</div></div>
+<div class="cap"><b>3 · Подготовка</b><small>4 темы + своя ситуация; сложность выше уровня закрыта</small></div>
+</div>
+
+<!-- 4 ARENA -->
+<div class="shot">
+<div class="phone"><div class="status"><span>9:41</span><span>●●● 100%</span></div>
+<div class="scr arena">
+  <div class="foe">
+    <span data-rac="stubborn" data-size="54" data-tie="1"></span>
+    <div class="who"><b>Начальник отдела</b>
+      <div class="tags"><span class="tag">Сдержанный</span><span class="tag c">Цель: не выйти из бюджета</span></div>
+    </div>
+    <span class="x">×</span>
+  </div>
+  <div class="chat">
+    <span class="round">Ход 3</span>
+    <div class="msg them">Бюджет на год уже утверждён. Прибавку обсудим в следующем квартале.</div>
+    <div class="msg me">За полгода я закрыл два проекта раньше срока и сэкономил отделу 400 тысяч.</div>
+    <div class="msg them">Цифры хорошие. Но повысить оклад прямо сейчас я не могу.</div>
+  </div>
+  <div class="opts">
+    <button class="opt" id="o1">Тогда я начну искать другое место.</button>
+    <button class="opt sel" id="o2">Давайте зафиксируем пересмотр в марте и премию за этот квартал.</button>
+    <button class="opt" id="o3">Хорошо, подожду до следующего года.</button>
+    <button class="btn green" id="b-send">Ответить</button>
+  </div>
+</div></div>
+<div class="cap"><b>4 · Арена</b><small>Соперник сверху, диалог, варианты ответа. На 3-м уровне вместо них поле ввода</small></div>
+</div>
+
+<!-- 5 RESULT -->
+<div class="shot">
+<div class="phone"><div class="status"><span>9:41</span><span>●●● 100%</span></div>
+<div class="scr result">
+  <div class="confetti" id="conf"></div>
+  <span class="bob" data-rac="happy" data-size="104" data-cheer="1"></span>
+  <h2>ПОБЕДА!</h2>
+  <div class="score">
+    <div class="sc a"><span>Опыт</span><b>+64</b></div>
+    <div class="sc b"><span>Оценка</span><b>8/10</b></div>
+    <div class="sc c"><span>Соперник</span><b>🌶🌶</b></div>
+  </div>
+  <div class="fb">
+    <b>Разбор судьи</b>
+    <p><span class="good">Что сработало:</span> опирался на цифры и предложил компромисс вместо ультиматума.</p>
+    <p><span class="bad">Совет:</span> назови конкретную сумму премии, а не оставляй её на усмотрение начальника.</p>
+  </div>
+  <div class="lvlbanner">⭐ Новый уровень 3!<small>Открыта сложность «Стоит насмерть»</small></div>
+  <div class="spacer"></div>
+  <button class="btn green" id="b-next">Продолжить</button>
+</div></div>
+<div class="cap"><b>5 · Итог</b><small>Победа: 8 × 8 = 64 XP, 160 → 224 XP, уровень 3. При поражении экран малиновый, +5 XP</small></div>
+</div>
+
+</section>
+
+<section class="notes">
+  <div class="note"><h3>Объёмная кнопка</h3><p>Нижняя тень того же цвета, только темнее: <code>box-shadow: 0 5px 0 &lt;тёмный&gt;</code>. При нажатии кнопка опускается на 5px. Ей оформлены все кнопки, плитки тем и варианты ответа.</p></div>
+  <div class="note"><h3>Маскот Торг</h3><p>Один енот с тремя эмоциями: довольный, упрямый, хитрый. Эмоция на арене зависит от сложности соперника, а на экране итога енот радуется или грустит.</p></div>
+  <div class="note"><h3>Шрифты</h3><p>Nunito (Black/ExtraBold) для заголовков и кнопок, Rubik для текста диалогов. Оба бесплатные в Google Fonts и полностью поддерживают кириллицу.</p></div>
+</section>
+</div>
+
+<script>
+function raccoon(mood,size,tie,cheer){
+  const brow = mood==="stubborn"
+    ? '<path d="M30 41l13 4M70 41l-13 4" stroke="#3A2C25" stroke-width="4" stroke-linecap="round"/>'
+    : mood==="sly" ? '<path d="M30 43l13-2M57 45l13-4" stroke="#3A2C25" stroke-width="4" stroke-linecap="round"/>' : '';
+  const eyes = mood==="sly"
+    ? '<path d="M33 52q5 3 10 0M57 52q5 3 10 0" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round"/>'
+    : '<circle cx="38" cy="52" r="6" fill="#fff"/><circle cx="62" cy="52" r="6" fill="#fff"/><circle cx="39" cy="53" r="3.2" fill="#3B2A20"/><circle cx="63" cy="53" r="3.2" fill="#3B2A20"/>';
+  const mouth = mood==="happy"
+    ? '<path d="M42 72q8 8 16 0" stroke="#3B2A20" stroke-width="3.5" fill="none" stroke-linecap="round"/>'
+    : mood==="stubborn" ? '<path d="M43 74h14" stroke="#3B2A20" stroke-width="3.5" stroke-linecap="round"/>'
+    : '<path d="M42 73q10 4 17-3" stroke="#3B2A20" stroke-width="3.5" fill="none" stroke-linecap="round"/>';
+  const tieSvg = tie ? '<path d="M50 88l-5 4 5 8 5-8z" fill="#E8505B"/>' : '';
+  const arms = cheer ? '<path d="M14 70L4 48M86 70l10-22" stroke="#A38F80" stroke-width="8" stroke-linecap="round"/>' : '';
+  return `<svg width="${size}" height="${size}" viewBox="0 0 100 100" aria-hidden="true">${arms}
+  <path d="M18 34L14 10l22 14z" fill="#A38F80"/><path d="M82 34l4-24-22 14z" fill="#A38F80"/>
+  <path d="M20 28l-2-12 11 8z" fill="#FFB3A7"/><path d="M80 28l2-12-11 8z" fill="#FFB3A7"/>
+  <ellipse cx="50" cy="58" rx="38" ry="34" fill="#C2B0A1"/>
+  <ellipse cx="50" cy="72" rx="20" ry="16" fill="#FBF3EC"/>
+  <path d="M16 52q17-14 34-2q17-12 34 2q-4 12-18 12q-10 0-16-8q-6 8-16 8q-14 0-18-12z" fill="#3A2C25"/>
+  ${eyes}${brow}
+  <ellipse cx="50" cy="64" rx="5" ry="3.6" fill="#3B2A20"/>${mouth}${tieSvg}</svg>`;
+}
+document.querySelectorAll("[data-rac]").forEach(el=>{
+  el.innerHTML = raccoon(el.dataset.rac, +el.dataset.size, el.dataset.tie, el.dataset.cheer);
+  el.style.display="inline-block"; el.style.lineHeight="0";
+});
+// selectable options & tiles
+function group(sel){const els=[...document.querySelectorAll(sel)];els.forEach(e=>e.addEventListener("click",()=>{els.forEach(x=>x.classList.remove("sel"));e.classList.add("sel")}))}
+group(".opt"); group(".tile");
+[...document.querySelectorAll(".dcard:not(.locked)")].forEach((d,_,all)=>{d.style.cursor="pointer";d.addEventListener("click",()=>{all.forEach(x=>x.classList.remove("sel"));d.classList.add("sel")})});
+// confetti
+const c=document.getElementById("conf"),cols=["#FF8A3D","#72BF44","#FFC23D","#E8505B","#C9628A"];
+for(let i=0;i<26;i++){const p=document.createElement("i");p.style.left=Math.random()*100+"%";p.style.background=cols[i%5];p.style.animationDelay=(-Math.random()*3.2)+"s";p.style.animationDuration=(2.6+Math.random()*1.6)+"s";c.appendChild(p)}
+</script>
+
+</html>

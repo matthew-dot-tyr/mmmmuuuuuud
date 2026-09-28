@@ -25,6 +25,7 @@ htmlcov/
 .vscode/
 .idea/
 .claude/
+CLAUDE.md
 
 # Jupyter
 .ipynb_checkpoints
