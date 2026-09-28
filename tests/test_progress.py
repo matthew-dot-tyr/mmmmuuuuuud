@@ -1,7 +1,9 @@
-"""Тесты уровней, формулы XP и блокировки сложности.
+"""Тесты уровней, формулы XP, блокировки сложности и стрика.
 
 Запуск из корня проекта:  pytest -q
 """
+
+from datetime import date, timedelta
 
 import pytest
 
@@ -11,6 +13,7 @@ from progress import (
     calculate_xp_gain,
     can_play_difficulty,
     compute_level,
+    compute_streak,
     unlocked_difficulties,
     xp_to_next_level,
 )
@@ -96,3 +99,42 @@ def test_difficulty_lock():
 
     assert can_play_difficulty(3, 3)
     assert not can_play_difficulty(3, 0)
+
+
+TODAY = date(2026, 9, 27)
+
+
+def test_streak_first_attempt_ever():
+    """last_practiced_date=None — это первая попытка, стрик становится 1."""
+    assert compute_streak(None, 0, today=TODAY) == 1
+    assert compute_streak(None, 5, today=TODAY) == 1   # streak_count в базе не важен, если даты не было
+
+
+def test_streak_continues_from_yesterday():
+    yesterday = TODAY - timedelta(days=1)
+    assert compute_streak(yesterday, 1, today=TODAY) == 2
+    assert compute_streak(yesterday, 9, today=TODAY) == 10
+
+
+def test_streak_unchanged_if_already_practiced_today():
+    """Несколько попыток за один день не должны крутить счётчик вверх."""
+    assert compute_streak(TODAY, 4, today=TODAY) == 4
+
+
+def test_streak_resets_after_gap():
+    two_days_ago = TODAY - timedelta(days=2)
+    a_week_ago = TODAY - timedelta(days=7)
+    assert compute_streak(two_days_ago, 10, today=TODAY) == 1
+    assert compute_streak(a_week_ago, 50, today=TODAY) == 1
+
+
+def test_streak_accepts_iso_string_from_supabase():
+    """Supabase отдаёт date-колонки строкой через REST, не date-объектом."""
+    yesterday_str = (TODAY - timedelta(days=1)).isoformat()
+    assert compute_streak(yesterday_str, 3, today=TODAY) == 4
+    assert compute_streak(TODAY.isoformat(), 3, today=TODAY) == 3
+
+
+def test_streak_treats_none_count_as_zero():
+    yesterday = TODAY - timedelta(days=1)
+    assert compute_streak(yesterday, None, today=TODAY) == 1

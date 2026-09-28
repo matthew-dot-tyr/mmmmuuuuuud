@@ -1,13 +1,16 @@
 """
 Проверка логики многоходового диалога без API-ключа: ответы Qwen подменяются
 заготовками. Запуск: python test_offline.py
+
+Лимита ходов в контракте больше нет — диалог идёт, пока модель не решит его
+закончить. Есть только скрытый технический потолок SAFETY_MAX_TURNS (защита от
+зацикливания), он проверяется отдельно и не виден ни в одном публичном ответе.
 """
-import random
-_real_randint = random.randint  # dialogue.random IS the random module, so save this before any monkeypatch
+from dataclasses import replace as dc_replace
 
 import ai
 from ai import dialogue, llm
-from ai.contracts import ContractError
+from ai.contracts import ContractError, SAFETY_MAX_TURNS
 from ai.xp import calculate_xp
 
 # ---------------------------------------------------------------
@@ -46,41 +49,47 @@ def opt(text):
     return {"text": text}
 
 # ---------------------------------------------------------------
-# Сценарий A: сложность 1 (с вариантами), фиксируем max_turns=2
+# Сценарий A: mode="theme", сложность 1 (с вариантами) — max_turns в контракте нет,
+# диалог продолжается сколько нужно и заканчивается только решением модели.
 # ---------------------------------------------------------------
-import random as _random
-dialogue.random.randint = lambda lo, hi: 2  # детерминированное число ходов для теста
-
 answers = [{**BASE_START, "options": [opt("Сравнить с рынком"), opt("Согласиться"), opt("Отказаться сразу")]}]
-start, session = ai.start_negotiation("Крупные покупки и аренда", 1, 2)
-assert session.max_turns == 2 and session.turns_done == 0
+start, session = ai.start_negotiation("theme", 1, 2, theme="Крупные покупки и аренда")
 pub = start.public()
-assert set(pub) >= {"scenario_text", "counterpart_opening", "counterpart_role", "counterpart_tone", "counterpart_goal", "max_turns", "options"}
+assert set(pub) == {"scenario_text", "counterpart_opening", "counterpart_role",
+                     "counterpart_tone", "counterpart_goal", "options"}
+assert "max_turns" not in pub
 assert all(set(o) == {"option_id", "text"} for o in pub["options"])
 assert "выдуманный_id" not in start.principles_used
-print("Старт (сложность 1): OK")
+assert session.turns_done == 0 and session.finished is False
+print("Старт (theme, сложность 1): OK")
 
-# Ход 1 из 2: не последний, ends=false с новыми вариантами
-answers = [{"ends": False, "counterpart_reply": "«Хорошо, но у меня тоже растут расходы»",
-            "options": [opt("Предложить 40 000"), opt("Настоять на 38 000"), opt("Уступить и согласиться на 45 000")]}]
-result, session = ai.advance_turn(session, "Средняя цена по району — 39 000, вот объявления")
-assert result.ends is False and result.options is not None and len(result.options) == 3
-assert session.turns_done == 1 and session.finished is False
-assert len(session.transcript) == 3  # opening + player + counterpart
-print("Ход 1/2 (не последний): OK")
+# Три хода подряд продолжаются — никакого форсирования на "последнем" ходу, потому что
+# такого понятия больше нет.
+for i in range(3):
+    answers = [{"ends": False, "counterpart_reply": f"«Ход {i}»",
+                "options": [opt("Предложить 40 000"), opt("Настоять на 38 000"), opt("Уступить")]}]
+    result, session = ai.advance_turn(session, f"Реплика игрока {i}")
+    assert result.ends is False and result.options is not None
+    assert session.turns_done == i + 1 and session.finished is False
+print("Диалог продолжается сколько нужно, без принудительного конца: OK")
 
-# Ход 2 из 2: последний -> ends должен быть true. Проверяем, что модель, ошибочно
-# вернувшая ends=false, отбраковывается и код делает повторный запрос.
-answers = [
-    {"ends": False, "counterpart_reply": "болтает дальше"},  # неверно для последнего хода
-    {"ends": True, "counterpart_reply": "«Хорошо, сойдёмся на 40 000»",
-     "outcome": "success", "score": 8, "feedback_text": "Вы удачно оперлись на рыночные данные."},
-]
-result, session = ai.advance_turn(session, "40 000 — справедливая middle ground")
-assert answers == [], "должен был использовать оба заготовленных ответа (retry)"
+# Модель сама решает закончить — код это принимает без вопросов. Структурный разбор
+# (Фича 2) собирается полностью, включая необязательные поля.
+answers = [{"ends": True, "counterpart_reply": "«Хорошо, сойдёмся на 40 000»",
+            "outcome": "success", "score": 8,
+            "feedback": {"broke_quote": None, "broke_reason": None,
+                         "what_worked": "Вы оперлись на рыночные цены, а не на эмоции.",
+                         "alternative_phrasing": None,
+                         "tip": "В следующий раз можно сразу предложить диапазон, а не одно число."}}]
+result, session = ai.advance_turn(session, "40 000 — справедливая середина")
 assert result.ends is True and result.outcome == "success" and result.score == 8
-assert session.finished is True and session.turns_done == 2
-print("Ход 2/2 (последний, с retry): OK")
+assert session.finished is True
+assert result.feedback.tip.startswith("В следующий раз")
+assert result.feedback.broke_quote is None  # чистый успех — ломаться было нечему
+pub = result.public()
+assert isinstance(pub["feedback"], dict)
+assert set(pub["feedback"]) == {"broke_quote", "broke_reason", "what_worked", "alternative_phrasing", "tip"}
+print("Структурный разбор (Фича 2) при успехе: OK")
 
 # После finished повторный ход запрещён без обращения к модели
 try:
@@ -91,42 +100,112 @@ except ContractError:
 print("Запрет хода после завершения: OK")
 
 # ---------------------------------------------------------------
-# Сценарий A2: ранний конец при слабом ходе (не дожидаясь max_turns)
+# Сценарий A2: ранний конец при слабом ходе — это по-прежнему решение модели,
+# просто раньше, чем в предыдущем сценарии, и код не мешает этому случиться.
 # ---------------------------------------------------------------
-dialogue.random.randint = lambda lo, hi: 3
 answers = [{**BASE_START, "options": [opt("Сравнить с рынком"), opt("Согласиться"), opt("Отказаться сразу")]}]
-start, session = ai.start_negotiation("Крупные покупки и аренда", 1, 2)
-assert session.max_turns == 3
+start, session = ai.start_negotiation("theme", 1, 2, theme="Крупные покупки и аренда")
 
-# Игрок нагрубил на первом же ходу (turns_remaining=3, это НЕ последний ход) —
-# модель вправе закончить сразу, код не должен этому мешать.
 answers = [{"ends": True, "counterpart_reply": "«Тогда разговор окончен»",
-            "outcome": "failure", "score": None, "feedback_text": "Грубость разрушила переговоры."}]
+            "outcome": "failure", "score": None,
+            "feedback": {"broke_quote": "Да пошли вы, не буду ничего обсуждать",
+                         "broke_reason": "Грубость разрушила переговоры вместо того, чтобы их вести.",
+                         "what_worked": None,
+                         "alternative_phrasing": "Мне некомфортна эта сумма, давайте обсудим, откуда она взялась.",
+                         "tip": "Даже при несогласии оставайтесь в диалоге, а не хлопайте дверью."}}]
 result, session = ai.advance_turn(session, "Да пошли вы, не буду ничего обсуждать")
 assert result.ends is True and result.outcome == "failure" and result.score is None
 assert session.turns_done == 1 and session.finished is True
-print("Ранний конец на слабом ходе (до max_turns): OK")
+assert result.feedback.broke_quote == "Да пошли вы, не буду ничего обсуждать"
+assert result.feedback.alternative_phrasing is not None
+print("Структурный разбор (Фича 2) при провале, с цитатой: OK")
 
 # ---------------------------------------------------------------
-# Сценарий B: сложность 3 (свободный текст), проверяем диапазон ходов и отсутствие options
+# Технический потолок SAFETY_MAX_TURNS: не игровой лимит, а аварийная защита от
+# зацикливания. Проверяем на самом краю — модель, ошибочно продолжившая диалог,
+# должна быть отбракована (ContractError -> retry), а не тихо принята.
 # ---------------------------------------------------------------
-random.seed(0)
-dialogue.random.randint = _real_randint
+answers = [{**BASE_START, "options": [opt("a"), opt("b"), opt("c")]}]
+start, session = ai.start_negotiation("theme", 1, 2, theme="Крупные покупки и аренда")
+edge_session = dc_replace(session, turns_done=SAFETY_MAX_TURNS - 1)
 
-seen_max_turns = set()
-for _ in range(20):
-    answers = [{**BASE_START}]  # без "options" — difficulty 3 их не запрашивает
-    start, session = ai.start_negotiation("Деньги и бизнес", 3, 5)
-    seen_max_turns.add(session.max_turns)
-    assert "options" not in start.public()
-    assert session.max_turns in range(6, 8)
-assert seen_max_turns <= {6, 7}
-print(f"Диапазон max_turns для сложности 3: {sorted(seen_max_turns)} — OK")
+answers = [
+    {"ends": False, "counterpart_reply": "тянет ещё"},  # недопустимо на грани потолка
+    {"ends": True, "counterpart_reply": "«На этом закончим»",
+     "outcome": "failure", "score": None,
+     "feedback": {"broke_quote": None, "broke_reason": None, "what_worked": None,
+                  "alternative_phrasing": None, "tip": "Переговоры затянулись без результата."}},
+]
+result, edge_session = ai.advance_turn(edge_session, "ещё одна реплика")
+assert answers == [], "должен был использовать оба заготовленных ответа (retry)"
+assert result.ends is True
+print("Технический потолок SAFETY_MAX_TURNS форсирует конец (не виден игроку): OK")
+
+# ---------------------------------------------------------------
+# Фича 2, деградация: строгая схема feedback дважды не собралась (модель прислала
+# что-то не по формату) — на первой попытке это ContractError (retry), а на второй,
+# последней, попытке код не должен ронять весь ход ошибкой: feedback деградирует
+# до обычной строки, но ends/outcome/score всё равно доходят до игрока.
+# ---------------------------------------------------------------
+answers = [{**BASE_START, "options": [opt("a"), opt("b"), opt("c")]}]
+start, session = ai.start_negotiation("theme", 2, 3, theme="Деньги и бизнес")
+
+answers = [
+    {"ends": True, "counterpart_reply": "«Договорились»", "outcome": "success", "score": 6,
+     "feedback": "просто строка вместо объекта — модель сломала схему"},   # 1-я попытка: невалидно, retry
+    {"ends": True, "counterpart_reply": "«Договорились»", "outcome": "success", "score": 6,
+     "feedback": "просто строка вместо объекта — модель сломала схему ещё раз"},  # 2-я (последняя): деградация
+]
+result, session = ai.advance_turn(session, "Финальное предложение игрока")
+assert answers == [], "должен был использовать оба заготовленных ответа"
+assert result.ends is True and result.outcome == "success" and result.score == 6
+assert result.feedback is None  # структуру собрать не вышло
+pub = result.public()
+assert isinstance(pub["feedback"], str)  # деградация: строка, а не объект
+assert "ещё раз" in pub["feedback"]
+print("Фича 2, деградация feedback до простого текста после неудачного retry: OK")
+
+# ---------------------------------------------------------------
+# Сценарий B: mode="theme", сложность 3 (свободный текст) — options не запрашиваются.
+# ---------------------------------------------------------------
+answers = [{**BASE_START}]
+start, session = ai.start_negotiation("theme", 3, 5, theme="Деньги и бизнес")
+assert "options" not in start.public()
 
 answers = [{"ends": False, "counterpart_reply": "«Продолжаем»"}]
 result, session = ai.advance_turn(session, "Свободный текст ответа игрока про критерии сделки")
 assert result.ends is False and result.options is None
 print("Свободный текст, продолжение диалога: OK")
+
+# ---------------------------------------------------------------
+# Сценарий C: mode="custom" — успешная сборка сценария из текста пользователя.
+# ---------------------------------------------------------------
+CUSTOM_BASE = {**BASE_START, "is_negotiation": True}
+answers = [{**CUSTOM_BASE, "options": [opt("a"), opt("b"), opt("c")]}]
+start, session = ai.start_negotiation("custom", 1, 2, custom_situation="Хочу договориться с соседом о шуме по вечерам")
+assert isinstance(start, ai.StartResult)
+assert session is not None
+print("custom: валидная ситуация собирается в сценарий: OK")
+
+# ---------------------------------------------------------------
+# Сценарий D: mode="custom" — отказ (слишком расплывчато).
+# ---------------------------------------------------------------
+answers = [{"is_negotiation": False, "rejection_reason": "too_vague"}]
+start, session = ai.start_negotiation("custom", 1, 1, custom_situation="деньги")
+assert isinstance(start, ai.RejectionResult)
+assert session is None
+assert start.public() == {"rejected": True, "reason": "too_vague"}
+print("custom: отказ (too_vague) корректно распознаётся: OK")
+
+# Неверный код причины от модели отбраковывается и код делает повторный запрос.
+answers = [
+    {"is_negotiation": False, "rejection_reason": "какая-то отсебятина"},
+    {"is_negotiation": False, "rejection_reason": "unsafe"},
+]
+start, session = ai.start_negotiation("custom", 1, 1, custom_situation="что-то")
+assert answers == []
+assert start.reason == "unsafe"
+print("custom: неверный rejection_reason отбраковывается (retry): OK")
 
 # ---------------------------------------------------------------
 # Контракт 3 (XP) — без изменений
@@ -144,9 +223,18 @@ print("Контракт XP: OK")
 # ---------------------------------------------------------------
 # Неверные входные данные при старте
 # ---------------------------------------------------------------
-for args in [("Спорт", 1, 1), ("Быт и личное", 4, 1), ("Быт и личное", 1, 0)]:
+bad_requests = [
+    dict(mode="theme", difficulty=1, character_level=1, theme="Спорт"),               # неизвестная тема
+    dict(mode="theme", difficulty=4, character_level=1, theme="Быт и личное"),        # сложность вне диапазона
+    dict(mode="theme", difficulty=1, character_level=0, theme="Быт и личное"),        # уровень < 1
+    dict(mode="custom", difficulty=1, character_level=1, custom_situation=""),        # пустой custom_situation
+    dict(mode="custom", difficulty=1, character_level=1, custom_situation="x" * 2000),  # слишком длинно
+    dict(mode="weird", difficulty=1, character_level=1),                              # неизвестный mode
+]
+for kwargs in bad_requests:
     try:
-        ai.start_negotiation(*args); raise AssertionError(args)
+        ai.start_negotiation(**kwargs)
+        raise AssertionError(kwargs)
     except ContractError:
         pass
 print("Проверка входных данных: OK")

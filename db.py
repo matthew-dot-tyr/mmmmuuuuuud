@@ -102,3 +102,97 @@ def add_xp(user_id, gained):
     new_level = compute_level(new_xp)
     update_xp(user_id, new_xp, new_level)
     return {"xp": new_xp, "level": new_level}
+
+
+def log_negotiation(negotiation_id, user_id, mode, theme, custom_situation,
+                    difficulty, character_level):
+    """Фиксирует начатые переговоры. Нужно для разбора, демо и того,
+    чтобы видеть, что люди реально пишут в кастомных ситуациях.
+    """
+    try:
+        supabase.table("negotiations").insert({
+            "id": negotiation_id,
+            "user_id": user_id,
+            "mode": mode,
+            "theme": theme,
+            "custom_situation": custom_situation,
+            "difficulty": difficulty,
+            "character_level": character_level,
+        }).execute()
+    except Exception as e:
+        print(f"[warning] Не записаны переговоры {negotiation_id}: {e}")
+
+
+_attempts_warning_shown = False
+
+
+def log_attempt(user_id, theme, level, success, score):
+    """Лог одной завершённой попытки (успех или провал) — история для игрока
+    и материал для стрика. level тут — сложность сценария (1-3), не уровень
+    персонажа. Таблица создаётся migrations/004_attempts_streak.sql.
+    """
+    global _attempts_warning_shown
+    try:
+        supabase.table("attempts").insert({
+            "user_id": user_id,
+            "theme": theme,
+            "level": level,
+            "success": success,
+            "score": score,
+        }).execute()
+    except Exception as e:
+        if not _attempts_warning_shown:
+            _attempts_warning_shown = True
+            print(f"[warning] Таблица attempts недоступна ({e}). "
+                  "Накати migrations/004_attempts_streak.sql.")
+
+
+def get_attempts(user_id, limit=20):
+    """Последние попытки игрока, новые сначала.
+
+    Мягкая деградация, как и у остальных таблиц из более поздних миграций
+    (negotiations, refusal_log): пока не накатили migrations/004, эндпоинт
+    /attempts должен отдавать пустой список, а не ронять страницу игрока 500-кой.
+    """
+    global _attempts_warning_shown
+    try:
+        res = supabase.table("attempts").select("*") \
+            .eq("user_id", user_id) \
+            .order("created_at", desc=True) \
+            .limit(limit) \
+            .execute()
+        return res.data
+    except Exception as e:
+        if not _attempts_warning_shown:
+            _attempts_warning_shown = True
+            print(f"[warning] Таблица attempts недоступна ({e}). "
+                  "Накати migrations/004_attempts_streak.sql.")
+        return []
+
+
+_streak_warning_shown = False
+
+
+def update_user_streak(user_id, streak_count, last_practiced_date):
+    """Отдельная функция, а не update_xp: стрик и XP обновляются независимо
+    друг от друга и по разным причинам, смешивать их в одном вызове незачем.
+
+    Ошибка тут (например, колонок streak_count/last_practiced_date ещё нет —
+    migrations/004 не накатили) не должна ронять весь /negotiation/turn и
+    вместе с ним уже посчитанное начисление XP — только логируем и продолжаем,
+    как и остальные необязательные side-эффекты в этом файле.
+    """
+    global _streak_warning_shown
+    try:
+        supabase.table("users") \
+            .update({
+                "streak_count": streak_count,
+                "last_practiced_date": last_practiced_date.isoformat(),
+            }) \
+            .eq("id", user_id) \
+            .execute()
+    except Exception as e:
+        if not _streak_warning_shown:
+            _streak_warning_shown = True
+            print(f"[warning] Не обновлён стрик для {user_id} ({e}). "
+                  "Накати migrations/004_attempts_streak.sql.")
