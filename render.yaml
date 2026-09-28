@@ -1,0 +1,35 @@
+# Render Blueprint для бэкенда: Render → New → Blueprint → выбрать этот репозиторий.
+# Переменные с sync: false Render спросит при создании (значения — из своего .env).
+# Пошагово: docs/deploy.md
+services:
+  - type: web
+    name: arena-api
+    runtime: python
+    plan: free
+    region: frankfurt
+    branch: main
+    autoDeploy: true
+    buildCommand: pip install -r requirements.txt
+    # --forwarded-allow-ips: доверять X-Forwarded-For от прокси Render. Без этого
+    # request.client.host — адрес прокси, и LIMIT_PER_IP становится одним лимитом на всех.
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT --forwarded-allow-ips="*"
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.14.0
+      - key: SUPABASE_URL
+        sync: false
+      - key: SUPABASE_KEY
+        sync: false
+      - key: SUPABASE_JWT_SECRET
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: QWEN_MODEL
+        sync: false
+      # Адрес фронта на Vercel. Пока его нет — поставь *, потом замени (шаг 3 в docs/deploy.md).
+      - key: CORS_ORIGINS
+        sync: false
+      # Подпись session_token. Постоянная, иначе при каждом перезапуске незаконченные бои сбрасываются.
+      - key: SESSION_SECRET
+        generateValue: true
