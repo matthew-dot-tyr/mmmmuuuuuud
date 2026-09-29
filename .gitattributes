@@ -1,0 +1,3 @@
+# Скрипты запуска: sh с CRLF не запустится на macOS/Linux, bat с LF капризничает в cmd.
+*.sh text eol=lf
+*.bat text eol=crlf

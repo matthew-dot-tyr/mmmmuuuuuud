@@ -5,12 +5,37 @@ Backend API тренажёра переговоров: FastAPI + Qwen через
 Диалог ведёт AI-модуль (`ai/`, точка входа — `presets.py`), бэкенд отвечает за
 игрока: доступ к сложностям, начисление XP и уровни.
 
-## Запуск
+## Быстрый запуск (бэкенд + фронт одной командой)
+
+Нужны **Python 3.10+**, **Node.js 20.19+ или 22.12+** (LTS с nodejs.org) и git.
+
+1. Скачать проект:
+   ```bash
+   git clone https://github.com/matthew-dot-tyr/mmmmuuuuuud.git
+   cd mmmmuuuuuud
+   ```
+2. Положить в корень проекта файл **`.env` с ключами** (его выдаёт команда; шаблон — `.env.example`).
+   Отдельный `frontend/.env` не нужен — скрипт соберёт его сам из `VITE_*` строк.
+3. Запустить:
+   - **Windows** — двойной клик по `start.bat` (или `.\start.ps1` в PowerShell);
+   - **macOS / Linux** — `./start.sh`.
+
+Скрипт проверит версии и ключи, в первый раз поставит зависимости (пара минут),
+поднимет бэкенд на `127.0.0.1:8000`, фронт на `127.0.0.1:5173` и откроет браузер.
+Вход — по ссылке из письма: ввести почту, открыть письмо **в этом же браузере**.
+Остановить всё — `Ctrl+C` в окне скрипта.
+
+**Без ключей** можно посмотреть интерфейс на заглушке вместо ИИ и входа:
+`start.bat -Demo` / `.\start.ps1 -Demo` / `./start.sh --demo`.
+
+Если что-то не так:
+- «порт занят» — проект уже запущен в другом окне, закройте его;
+- письмо не пришло — проверьте «Спам»; письма для входа ограничены по частоте, подождите пару минут;
+- «не найден Python / Node.js» после установки — откройте новое окно терминала.
+
+## Ручной запуск (для разработки)
 
 ```bash
-git clone https://github.com/matthew-dot-tyr/arena-negotiations-backend
-cd arena-negotiations-backend
-
 python -m venv venv
 source venv/bin/activate        # Windows: venv\Scripts\activate
 pip install -r requirements.txt
@@ -18,6 +43,8 @@ pip install -r requirements.txt
 cp .env.example .env            # заполнить ключи
 uvicorn main:app --reload
 ```
+
+Фронт — в отдельном терминале, см. `frontend/README.md`.
 
 Документация и ручные запросы: http://127.0.0.1:8000/docs
 
