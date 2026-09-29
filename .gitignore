@@ -9,7 +9,8 @@ venv/
 env/
 
 # Environment variables
-.env
+# .env и frontend/.env намеренно лежат в репозитории: жюри запускает проект
+# сразу после git clone. Поэтому репозиторий должен оставаться ПРИВАТНЫМ.
 
 # Distribution / packaging
 build/
