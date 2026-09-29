@@ -50,8 +50,6 @@ npm run build             # в frontend/dist
 npm run preview           # посмотреть сборку локально
 ```
 
-Выкладка в интернет (Vercel) — [docs/deploy.md](../docs/deploy.md).
-
 ## Устройство
 
 | Путь | Что там |
